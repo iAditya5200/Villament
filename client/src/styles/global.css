@@ -1911,7 +1911,7 @@ a.contact-detail:hover {
   .section {
     padding: 72px 0;
   }
-
+ 
   /* Mobile navigation drawer */
   .site-header__menu-button {
     display: block;
@@ -1919,6 +1919,7 @@ a.contact-detail:hover {
 
   .site-header__nav {
     position: fixed;
+    height: fit-content;
     top: var(--header-height);
     left: 0;
     right: 0;
@@ -1928,6 +1929,7 @@ a.contact-detail:hover {
     gap: 6px;
     padding: 28px 24px;
     background: var(--color-sand);
+    /* background-color: #1c2621 ; */
     color: var(--color-ink);
     transform: translateX(100%);
     transition: transform 0.25s ease;
@@ -2081,3 +2083,4 @@ a.contact-detail:hover {
     grid-template-columns: 1fr;
   }
 }
+

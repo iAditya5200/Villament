@@ -53,7 +53,7 @@ export default function HomePage() {
       {/* ---------- 1. Hero ---------- */}
       <section className="hero" style={{ "--hero-image": `url(${HERO_IMAGE_ADDRESS})` }}>
         <div className="container hero__content">
-          <span className="eyebrow eyebrow--light">Villa communities across Maharashtra</span>
+          <span className="eyebrow eyebrow--light">Villa communities across Mumbai </span>
           <h1 className="hero__title">
             Homes that
             <br />
