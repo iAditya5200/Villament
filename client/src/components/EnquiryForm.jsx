@@ -20,8 +20,8 @@ import { publicApi } from "../api/apiClient.js";
 import Icon from "./Icon.jsx";
 
 const ENQUIRY_TYPE_CHOICES = [
-  { value: "Site Visit", label: "Book a site visit" },
-  { value: "Brochure Request", label: "Get the brochure" },
+  { value: "Site Virtual Visit", label: "Book a virtual site visit" },
+  // { value: "Brochure Request", label: "Get the brochure" },
   { value: "General", label: "Ask a question" },
 ];
 

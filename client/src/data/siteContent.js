@@ -11,12 +11,12 @@
  */
 
 export const COMPANY_DETAILS = {
-  phoneDisplay: "+91 98765 43210",
-  phoneLink: "+919876543210", // used in "tel:" links – digits only
-  whatsappNumber: "919876543210", // used in WhatsApp links – country code + number, no "+"
-  email: "hello@villament.com",
+  phoneDisplay: "+91 93543 04142",
+  phoneLink: "+91 93543 04142", // used in "tel:" links – digits only
+  whatsappNumber: "919354304142", // used in WhatsApp links – country code + number, no "+"
+  email: "info@villament.co.in",
   address: "4th Floor, Palm Court, Sector 17, Vashi, Navi Mumbai 400703",
-  officeHours: "Mon – Sat, 10 am – 7 pm",
+  officeHours: "24*7",
   // Used for the map on the Contact page
   officeLatitude: 19.0771,
   officeLongitude: 72.9986,

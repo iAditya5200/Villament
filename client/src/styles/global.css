@@ -498,7 +498,7 @@ button {
   padding: 6px;
 }
 
-.brand-logo {
+/* .brand-logo {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -516,8 +516,60 @@ button {
   font-family: var(--font-heading);
   font-size: 1.55rem;
   letter-spacing: 0.01em;
+} */
+/* Brand logo */
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-decoration: none;
 }
 
+.brand-logo__mark {
+  display: block;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  color: #b08a45;
+  overflow: visible;
+}
+
+.brand-logo__mark path {
+  vector-effect: non-scaling-stroke;
+}
+
+.brand-logo--dark {
+  color: var(--color-forest);
+}
+
+.brand-logo--light {
+  color: var(--color-cream);
+}
+
+.brand-logo__word {
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+/* Mobile logo */
+@media (max-width: 480px) {
+  .brand-logo {
+    gap: 8px;
+  }
+
+  .brand-logo__mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .brand-logo__word {
+    font-size: 1.3rem;
+  }
+}
 .site-footer {
   background: var(--color-forest-deep);
   color: var(--color-stone);
