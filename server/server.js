@@ -30,10 +30,11 @@ const application = express();
 const PORT = process.env.PORT || 5000;
 
 /* ---------- 1. Allow the React website to call this API (CORS) ---------- */
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173"|| "https://villament.onrender.com/")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim());
-
+console.log("CLIENT_ORIGIN from Render:", process.env.CLIENT_ORIGIN);
+console.log("Allowed origins:", allowedOrigins);
 application.use(
   cors({
     origin: function checkOrigin(requestOrigin, callback) {
