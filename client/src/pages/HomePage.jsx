@@ -30,9 +30,7 @@ import { useEnquiryModal } from "../context/EnquiryModalContext.jsx";
 import { BRAND_PILLARS, COMPANY_STATS, FREQUENTLY_ASKED_QUESTIONS } from "../data/siteContent.js";
 import { formatLocation } from "../utils/formatters.js";
 
-const HERO_IMAGE_ADDRESS =
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2000&q=80";
-
+const HERO_IMAGE_ADDRESS = "/pics/a-m-Cis2UVn1a4Q-unsplash.jpg";
 export default function HomePage() {
   const { openEnquiryModal } = useEnquiryModal();
 
@@ -53,11 +51,11 @@ export default function HomePage() {
       {/* ---------- 1. Hero ---------- */}
       <section className="hero" style={{ "--hero-image": `url(${HERO_IMAGE_ADDRESS})` }}>
         <div className="container hero__content">
-          <span className="eyebrow eyebrow--light">Villa communities across Mumbai </span>
+          <span className="eyebrow eyebrow--light"> Invest in Mumbai's next growth corridor </span>
           <h1 className="hero__title">
-            Homes that
+            Gated villas and
             <br />
-            put down <em>roots.</em>
+            plots across <em>Mumbai 3.0</em>
           </h1>
           <p className="hero__subtitle">
             Courtyard villas, villa plots and managed farmhouses — planned around the land, built to be handed down.

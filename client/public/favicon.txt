@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Villament mark: a roof line over a "V" -->
+  <rect width="64" height="64" rx="14" fill="F4EFE6"/>
+  <!-- <path d="M14 30 L32 16 L50 30" fill="none" stroke="#F4EFE6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 32 L32 50 L43 32" fill="none" stroke="#C9794B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/> -->
+  <path
+  d="M10 13 H24 L34 45 L45 13 H59"
+  fill="none"
+  stroke="#C9794B"
+  strokeWidth="20"
+  strokeLinecap="round"
+  strokeLinejoin="round"
+/>
+
+{/* Bold E monogram */}
+<path
+  d="M31 17 H46 M31 17 V39 H46 M31 28 H43"
+  fill="none"
+  stroke="#C9794B"
+  strokeWidth="20"
+  strokeLinecap="round"
+  strokeLinejoin="round"
+/>
+</svg>
