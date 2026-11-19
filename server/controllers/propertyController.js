@@ -1,3 +1,311 @@
+// /**
+//  * propertyController.js
+//  * ---------------------
+//  * All logic for reading, creating, updating and deleting properties.
+//  *
+//  * Public functions (used by the website):
+//  *    listPublishedProperties, getPropertyBySlug, getPropertyFilterOptions
+//  *
+//  * Admin functions (used by the admin panel, login required):
+//  *    listAllPropertiesForAdmin, getPropertyByIdForAdmin,
+//  *    createProperty, updateProperty, deleteProperty
+//  */
+
+// import fs from "fs";
+// import path from "path";
+// import Property, { PROPERTY_STATUSES, PROPERTY_TYPES } from "../models/Property.js";
+// import Enquiry from "../models/Enquiry.js";
+// import { createHttpError } from "../utils/asyncHandler.js";
+
+// /* ------------------------------------------------------------------ */
+// /* Helper functions                                                    */
+// /* ------------------------------------------------------------------ */
+
+// /**
+//  * Escapes characters that have a special meaning in regular expressions,
+//  * so that a visitor's search text is treated as plain text.
+//  */
+// function escapeForRegularExpression(text) {
+//   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// }
+
+// /**
+//  * Converts the uploaded files from multer into public image paths.
+//  * Example: "/uploads/property-1718000000000-1234.jpg"
+//  */
+// function getUploadedImagePaths(uploadedFiles = []) {
+//   return uploadedFiles.map((file) => `/uploads/${file.filename}`);
+// }
+
+// /**
+//  * Deletes image files from the /uploads folder.
+//  * Only local uploads are removed; web addresses (https://...) are ignored.
+//  */
+// function deleteLocalImageFiles(imagePaths = []) {
+//   imagePaths
+//     .filter((imagePath) => imagePath.startsWith("/uploads/"))
+//     .forEach((imagePath) => {
+//       const absoluteFilePath = path.resolve("uploads", path.basename(imagePath));
+//       fs.unlink(absoluteFilePath, (error) => {
+//         if (error && error.code !== "ENOENT") {
+//           console.warn(`Could not delete image ${absoluteFilePath}:`, error.message);
+//         }
+//       });
+//     });
+// }
+
+// /**
+//  * The admin form sends text fields inside one JSON string called "propertyData"
+//  * (because the request also contains image files). This function reads that
+//  * JSON safely and keeps only the fields we allow to be changed.
+//  */
+// function readPropertyFieldsFromRequest(request) {
+//   let submittedData = {};
+
+//   try {
+//     submittedData = request.body.propertyData ? JSON.parse(request.body.propertyData) : request.body;
+//   } catch (error) {
+//     throw createHttpError(400, "Property data is not valid JSON.");
+//   }
+
+//   /** Turns "a, b" / "a\nb" / ["a","b"] into a clean array of strings. */
+//   const toCleanList = (value) => {
+//     if (Array.isArray(value)) {
+//       return value.map((item) => String(item).trim()).filter(Boolean);
+//     }
+//     if (typeof value === "string") {
+//       return value
+//         .split(/\n|,/)
+//         .map((item) => item.trim())
+//         .filter(Boolean);
+//     }
+//     return [];
+//   };
+
+//   const allowedFields = {
+//     title: submittedData.title,
+//     tagline: submittedData.tagline,
+//     description: submittedData.description,
+//     location: {
+//       locality: submittedData.location?.locality || "",
+//       city: submittedData.location?.city || "",
+//       state: submittedData.location?.state || "Maharashtra",
+//       latitude: submittedData.location?.latitude ? Number(submittedData.location.latitude) : undefined,
+//       longitude: submittedData.location?.longitude ? Number(submittedData.location.longitude) : undefined,
+//     },
+//     propertyType: submittedData.propertyType,
+//     status: submittedData.status,
+//     startingPrice: Number(submittedData.startingPrice) || 0,
+//     configuration: submittedData.configuration,
+//     sizeRange: submittedData.sizeRange,
+//     totalUnits: Number(submittedData.totalUnits) || 0,
+//     landArea: submittedData.landArea,
+//     possession: submittedData.possession,
+//     reraNumber: submittedData.reraNumber,
+//     amenities: toCleanList(submittedData.amenities),
+//     highlights: toCleanList(submittedData.highlights),
+//     isFeatured: submittedData.isFeatured === true || submittedData.isFeatured === "true",
+//   };
+
+//   // Images the admin chose to keep (existing uploads or pasted web addresses)
+//   const keptImagePaths = toCleanList(submittedData.images);
+
+//   return { allowedFields, keptImagePaths };
+// }
+
+// /* ------------------------------------------------------------------ */
+// /* Public routes                                                       */
+// /* ------------------------------------------------------------------ */
+
+// /**
+//  * GET /api/properties
+//  * Optional query parameters:
+//  *    status   – "Now Selling" | "Coming Soon" | "Sold Out"
+//  *    type     – "Villa" | "Villa Plot" | ...
+//  *    city     – e.g. "Panvel"
+//  *    search   – free text matched against title, tagline and locality
+//  *    featured – "true" to return only featured properties
+//  *    sort     – "newest" (default) | "price-low" | "price-high"
+//  *    limit    – maximum number of results
+//  */
+// export async function listPublishedProperties(request, response) {
+//   const { status, type, city, search, featured, sort, limit } = request.query;
+//   const databaseFilter = {};
+
+//   if (status) databaseFilter.status = status;
+//   if (type) databaseFilter.propertyType = type;
+//   if (city) databaseFilter["location.city"] = city;
+//   if (featured === "true") databaseFilter.isFeatured = true;
+
+//   if (search) {
+//     const searchPattern = new RegExp(escapeForRegularExpression(search.trim()), "i");
+//     databaseFilter.$or = [
+//       { title: searchPattern },
+//       { tagline: searchPattern },
+//       { "location.locality": searchPattern },
+//       { "location.city": searchPattern },
+//     ];
+//   }
+
+//   const sortOptions = {
+//     newest: { createdAt: -1 },
+//     "price-low": { startingPrice: 1 },
+//     "price-high": { startingPrice: -1 },
+//   };
+//   const chosenSort = sortOptions[sort] || sortOptions.newest;
+
+//   let databaseQuery = Property.find(databaseFilter).sort(chosenSort);
+//   if (limit) {
+//     databaseQuery = databaseQuery.limit(Number(limit));
+//   }
+
+//   const properties = await databaseQuery;
+//   response.json({ properties });
+// }
+
+// /**
+//  * GET /api/properties/filters
+//  * Returns the values the website can show in its filter drop-downs.
+//  */
+// export async function getPropertyFilterOptions(request, response) {
+//   const availableCities = await Property.distinct("location.city");
+//   response.json({
+//     cities: availableCities.sort(),
+//     types: PROPERTY_TYPES,
+//     statuses: PROPERTY_STATUSES,
+//   });
+// }
+
+// /**
+//  * GET /api/properties/:slug
+//  * Returns one property (by its URL slug) plus up to 3 similar properties.
+//  */
+// export async function getPropertyBySlug(request, response) {
+//   const property = await Property.findOne({ slug: request.params.slug });
+
+//   if (!property) {
+//     throw createHttpError(404, "Property not found.");
+//   }
+
+//   const similarProperties = await Property.find({
+//     _id: { $ne: property._id },
+//     $or: [{ "location.city": property.location.city }, { propertyType: property.propertyType }],
+//   })
+//     .limit(3)
+//     .sort({ createdAt: -1 });
+
+//   response.json({ property, similarProperties });
+// }
+
+// /* ------------------------------------------------------------------ */
+// /* Admin routes                                                        */
+// /* ------------------------------------------------------------------ */
+
+// /**
+//  * GET /api/admin/properties
+//  * Every property, newest first, with the number of enquiries each one received.
+//  */
+// export async function listAllPropertiesForAdmin(request, response) {
+//   const properties = await Property.find().sort({ createdAt: -1 }).lean();
+
+//   // Count enquiries for each property in a single database query
+//   const enquiryCounts = await Enquiry.aggregate([
+//     { $match: { property: { $ne: null } } },
+//     { $group: { _id: "$property", totalEnquiries: { $sum: 1 } } },
+//   ]);
+
+//   const enquiryCountByPropertyId = new Map(
+//     enquiryCounts.map((countRow) => [String(countRow._id), countRow.totalEnquiries])
+//   );
+
+//   const propertiesWithCounts = properties.map((property) => ({
+//     ...property,
+//     enquiryCount: enquiryCountByPropertyId.get(String(property._id)) || 0,
+//   }));
+
+//   response.json({ properties: propertiesWithCounts });
+// }
+
+// /**
+//  * GET /api/admin/properties/:id
+//  */
+// export async function getPropertyByIdForAdmin(request, response) {
+//   const property = await Property.findById(request.params.id);
+//   if (!property) {
+//     throw createHttpError(404, "Property not found.");
+//   }
+//   response.json({ property });
+// }
+
+// /**
+//  * POST /api/admin/properties
+//  * Multipart form: "propertyData" (JSON text) + "images" (files).
+//  */
+// export async function createProperty(request, response) {
+//   const { allowedFields, keptImagePaths } = readPropertyFieldsFromRequest(request);
+//   const newlyUploadedImagePaths = getUploadedImagePaths(request.files);
+
+//   try {
+//     const createdProperty = await Property.create({
+//       ...allowedFields,
+//       images: [...keptImagePaths, ...newlyUploadedImagePaths],
+//     });
+//     response.status(201).json({ property: createdProperty, message: "Property created successfully." });
+//   } catch (error) {
+//     // If saving failed, remove the files we just uploaded so they do not pile up
+//     deleteLocalImageFiles(newlyUploadedImagePaths);
+//     throw error;
+//   }
+// }
+
+// /**
+//  * PUT /api/admin/properties/:id
+//  * Same body as createProperty. Images that are no longer in the list are
+//  * deleted from the server.
+//  */
+// export async function updateProperty(request, response) {
+//   const existingProperty = await Property.findById(request.params.id);
+//   if (!existingProperty) {
+//     deleteLocalImageFiles(getUploadedImagePaths(request.files));
+//     throw createHttpError(404, "Property not found.");
+//   }
+
+//   const { allowedFields, keptImagePaths } = readPropertyFieldsFromRequest(request);
+//   const newlyUploadedImagePaths = getUploadedImagePaths(request.files);
+//   const finalImageList = [...keptImagePaths, ...newlyUploadedImagePaths];
+
+//   // Images that existed before but were removed by the admin
+//   const removedImagePaths = existingProperty.images.filter((imagePath) => !finalImageList.includes(imagePath));
+
+//   existingProperty.set({ ...allowedFields, images: finalImageList });
+
+//   try {
+//     await existingProperty.save();
+//   } catch (error) {
+//     deleteLocalImageFiles(newlyUploadedImagePaths);
+//     throw error;
+//   }
+
+//   deleteLocalImageFiles(removedImagePaths);
+//   response.json({ property: existingProperty, message: "Property updated successfully." });
+// }
+
+// /**
+//  * DELETE /api/admin/properties/:id
+//  * Removes the property and its uploaded images. Enquiries about this property
+//  * are kept (they still show the property title), so no lead is ever lost.
+//  */
+// export async function deleteProperty(request, response) {
+//   const propertyToDelete = await Property.findById(request.params.id);
+//   if (!propertyToDelete) {
+//     throw createHttpError(404, "Property not found.");
+//   }
+
+//   await propertyToDelete.deleteOne();
+//   deleteLocalImageFiles(propertyToDelete.images);
+
+//   response.json({ message: `"${propertyToDelete.title}" was deleted.` });
+// }
 /**
  * propertyController.js
  * ---------------------
@@ -9,13 +317,22 @@
  * Admin functions (used by the admin panel, login required):
  *    listAllPropertiesForAdmin, getPropertyByIdForAdmin,
  *    createProperty, updateProperty, deleteProperty
+ *
+ * IMAGE STORAGE
+ * -------------
+ * Property photos are stored in Cloudinary (cloud storage), NOT on the server's
+ * disk. Hosting platforms such as Render wipe the disk on every restart, which
+ * made uploaded photos disappear. Cloudinary keeps them permanently.
+ *
+ * The upload middleware (middleware/imageUpload.js) runs BEFORE these functions.
+ * It sends each photo to Cloudinary and puts the resulting web addresses in
+ * "request.uploadedImageAddresses", which the functions below then save.
  */
 
-import fs from "fs";
-import path from "path";
 import Property, { PROPERTY_STATUSES, PROPERTY_TYPES } from "../models/Property.js";
 import Enquiry from "../models/Enquiry.js";
 import { createHttpError } from "../utils/asyncHandler.js";
+import { deleteImageFromCloudinary } from "../config/cloudinary.js";
 
 /* ------------------------------------------------------------------ */
 /* Helper functions                                                    */
@@ -30,68 +347,127 @@ function escapeForRegularExpression(text) {
 }
 
 /**
- * Converts the uploaded files from multer into public image paths.
- * Example: "/uploads/property-1718000000000-1234.jpg"
+ * Returns the permanent Cloudinary addresses of the images uploaded with this request.
+ *
+ * The upload middleware has already sent the files to Cloudinary and stored the
+ * resulting web addresses in "request.uploadedImageAddresses".
+ * Example address:
+ *   "https://res.cloudinary.com/<cloud>/image/upload/v123/villament/properties/abc.jpg"
+ *
+ * If the request contained no images, an empty list is returned.
  */
-function getUploadedImagePaths(uploadedFiles = []) {
-  return uploadedFiles.map((file) => `/uploads/${file.filename}`);
+function getUploadedImageAddresses(request) {
+  if (request.uploadedImageAddresses) {
+    return request.uploadedImageAddresses;
+  }
+  return [];
 }
 
 /**
- * Deletes image files from the /uploads folder.
- * Only local uploads are removed; web addresses (https://...) are ignored.
+ * Deletes images from Cloudinary.
+ *
+ * - Cloudinary addresses are removed from cloud storage.
+ * - Any other address (pasted web links, or old "/uploads/..." paths whose files
+ *   no longer exist) is skipped by deleteImageFromCloudinary, because there is
+ *   nothing for us to delete.
+ *
+ * A failed deletion only logs a warning. It must never make the admin's save or
+ * delete action fail, because the database change has already succeeded.
  */
-function deleteLocalImageFiles(imagePaths = []) {
-  imagePaths
-    .filter((imagePath) => imagePath.startsWith("/uploads/"))
-    .forEach((imagePath) => {
-      const absoluteFilePath = path.resolve("uploads", path.basename(imagePath));
-      fs.unlink(absoluteFilePath, (error) => {
-        if (error && error.code !== "ENOENT") {
-          console.warn(`Could not delete image ${absoluteFilePath}:`, error.message);
-        }
-      });
-    });
+async function deleteStoredImages(imageAddresses) {
+  // Use an empty list when nothing was passed in.
+  const addressesToDelete = imageAddresses || [];
+
+  for (const imageAddress of addressesToDelete) {
+    try {
+      await deleteImageFromCloudinary(imageAddress);
+    } catch (error) {
+      console.warn("Could not delete image " + imageAddress + ":", error.message);
+    }
+  }
+}
+
+/**
+ * Turns "a, b" / "a\nb" / ["a","b"] into a clean array of trimmed, non-empty strings.
+ * Used for amenities, highlights and the list of images to keep.
+ */
+function convertToCleanList(value) {
+  // Case 1: the value is already a list. Trim every item and drop the empty ones.
+  if (Array.isArray(value)) {
+    const cleanedItems = [];
+    for (const item of value) {
+      const trimmedItem = String(item).trim();
+      if (trimmedItem !== "") {
+        cleanedItems.push(trimmedItem);
+      }
+    }
+    return cleanedItems;
+  }
+
+  // Case 2: the value is text separated by commas or new lines. Split it, then clean it.
+  if (typeof value === "string") {
+    const textPieces = value.split(/\n|,/);
+    const cleanedItems = [];
+    for (const piece of textPieces) {
+      const trimmedPiece = piece.trim();
+      if (trimmedPiece !== "") {
+        cleanedItems.push(trimmedPiece);
+      }
+    }
+    return cleanedItems;
+  }
+
+  // Case 3: anything else (undefined, a number ...) becomes an empty list.
+  return [];
+}
+
+/**
+ * Converts a value from the form into a number, or "undefined" when it is empty.
+ * Used for the optional latitude and longitude.
+ */
+function convertToOptionalNumber(value) {
+  if (value) {
+    return Number(value);
+  }
+  return undefined;
 }
 
 /**
  * The admin form sends text fields inside one JSON string called "propertyData"
  * (because the request also contains image files). This function reads that
  * JSON safely and keeps only the fields we allow to be changed.
+ *
+ * Returns:
+ *   allowedFields   - the cleaned property fields ready to be saved
+ *   keptImagePaths  - images the admin chose to keep (existing Cloudinary
+ *                     addresses or pasted web addresses)
  */
 function readPropertyFieldsFromRequest(request) {
   let submittedData = {};
 
   try {
-    submittedData = request.body.propertyData ? JSON.parse(request.body.propertyData) : request.body;
+    if (request.body.propertyData) {
+      submittedData = JSON.parse(request.body.propertyData);
+    } else {
+      submittedData = request.body;
+    }
   } catch (error) {
     throw createHttpError(400, "Property data is not valid JSON.");
   }
 
-  /** Turns "a, b" / "a\nb" / ["a","b"] into a clean array of strings. */
-  const toCleanList = (value) => {
-    if (Array.isArray(value)) {
-      return value.map((item) => String(item).trim()).filter(Boolean);
-    }
-    if (typeof value === "string") {
-      return value
-        .split(/\n|,/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
-    return [];
-  };
+  // The location block may be missing, so fall back to an empty object.
+  const submittedLocation = submittedData.location || {};
 
   const allowedFields = {
     title: submittedData.title,
     tagline: submittedData.tagline,
     description: submittedData.description,
     location: {
-      locality: submittedData.location?.locality || "",
-      city: submittedData.location?.city || "",
-      state: submittedData.location?.state || "Maharashtra",
-      latitude: submittedData.location?.latitude ? Number(submittedData.location.latitude) : undefined,
-      longitude: submittedData.location?.longitude ? Number(submittedData.location.longitude) : undefined,
+      locality: submittedLocation.locality || "",
+      city: submittedLocation.city || "",
+      state: submittedLocation.state || "Maharashtra",
+      latitude: convertToOptionalNumber(submittedLocation.latitude),
+      longitude: convertToOptionalNumber(submittedLocation.longitude),
     },
     propertyType: submittedData.propertyType,
     status: submittedData.status,
@@ -102,15 +478,16 @@ function readPropertyFieldsFromRequest(request) {
     landArea: submittedData.landArea,
     possession: submittedData.possession,
     reraNumber: submittedData.reraNumber,
-    amenities: toCleanList(submittedData.amenities),
-    highlights: toCleanList(submittedData.highlights),
+    amenities: convertToCleanList(submittedData.amenities),
+    highlights: convertToCleanList(submittedData.highlights),
+    // The checkbox may arrive as the boolean true or as the text "true".
     isFeatured: submittedData.isFeatured === true || submittedData.isFeatured === "true",
   };
 
   // Images the admin chose to keep (existing uploads or pasted web addresses)
-  const keptImagePaths = toCleanList(submittedData.images);
+  const keptImagePaths = convertToCleanList(submittedData.images);
 
-  return { allowedFields, keptImagePaths };
+  return { allowedFields: allowedFields, keptImagePaths: keptImagePaths };
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,23 +497,40 @@ function readPropertyFieldsFromRequest(request) {
 /**
  * GET /api/properties
  * Optional query parameters:
- *    status   – "Now Selling" | "Coming Soon" | "Sold Out"
- *    type     – "Villa" | "Villa Plot" | ...
- *    city     – e.g. "Panvel"
- *    search   – free text matched against title, tagline and locality
- *    featured – "true" to return only featured properties
- *    sort     – "newest" (default) | "price-low" | "price-high"
- *    limit    – maximum number of results
+ *    status   - "Now Selling" | "Coming Soon" | "Sold Out"
+ *    type     - "Villa" | "Villa Plot" | ...
+ *    city     - e.g. "Panvel"
+ *    search   - free text matched against title, tagline and locality
+ *    featured - "true" to return only featured properties
+ *    sort     - "newest" (default) | "price-low" | "price-high"
+ *    limit    - maximum number of results
  */
 export async function listPublishedProperties(request, response) {
-  const { status, type, city, search, featured, sort, limit } = request.query;
+  const status = request.query.status;
+  const type = request.query.type;
+  const city = request.query.city;
+  const search = request.query.search;
+  const featured = request.query.featured;
+  const sort = request.query.sort;
+  const limit = request.query.limit;
+
+  // Build the database filter one condition at a time.
   const databaseFilter = {};
 
-  if (status) databaseFilter.status = status;
-  if (type) databaseFilter.propertyType = type;
-  if (city) databaseFilter["location.city"] = city;
-  if (featured === "true") databaseFilter.isFeatured = true;
+  if (status) {
+    databaseFilter.status = status;
+  }
+  if (type) {
+    databaseFilter.propertyType = type;
+  }
+  if (city) {
+    databaseFilter["location.city"] = city;
+  }
+  if (featured === "true") {
+    databaseFilter.isFeatured = true;
+  }
 
+  // Free-text search: match the text against several fields, ignoring upper/lower case.
   if (search) {
     const searchPattern = new RegExp(escapeForRegularExpression(search.trim()), "i");
     databaseFilter.$or = [
@@ -147,6 +541,7 @@ export async function listPublishedProperties(request, response) {
     ];
   }
 
+  // The sort choices the website can ask for. Unknown values fall back to "newest".
   const sortOptions = {
     newest: { createdAt: -1 },
     "price-low": { startingPrice: 1 },
@@ -160,7 +555,7 @@ export async function listPublishedProperties(request, response) {
   }
 
   const properties = await databaseQuery;
-  response.json({ properties });
+  response.json({ properties: properties });
 }
 
 /**
@@ -169,6 +564,7 @@ export async function listPublishedProperties(request, response) {
  */
 export async function getPropertyFilterOptions(request, response) {
   const availableCities = await Property.distinct("location.city");
+
   response.json({
     cities: availableCities.sort(),
     types: PROPERTY_TYPES,
@@ -187,6 +583,7 @@ export async function getPropertyBySlug(request, response) {
     throw createHttpError(404, "Property not found.");
   }
 
+  // "Similar" means: a different property in the same city OR of the same type.
   const similarProperties = await Property.find({
     _id: { $ne: property._id },
     $or: [{ "location.city": property.location.city }, { propertyType: property.propertyType }],
@@ -194,7 +591,7 @@ export async function getPropertyBySlug(request, response) {
     .limit(3)
     .sort({ createdAt: -1 });
 
-  response.json({ property, similarProperties });
+  response.json({ property: property, similarProperties: similarProperties });
 }
 
 /* ------------------------------------------------------------------ */
@@ -208,20 +605,24 @@ export async function getPropertyBySlug(request, response) {
 export async function listAllPropertiesForAdmin(request, response) {
   const properties = await Property.find().sort({ createdAt: -1 }).lean();
 
-  // Count enquiries for each property in a single database query
+  // Count enquiries for each property in a single database query.
   const enquiryCounts = await Enquiry.aggregate([
     { $match: { property: { $ne: null } } },
     { $group: { _id: "$property", totalEnquiries: { $sum: 1 } } },
   ]);
 
-  const enquiryCountByPropertyId = new Map(
-    enquiryCounts.map((countRow) => [String(countRow._id), countRow.totalEnquiries])
-  );
+  // Build a lookup table: property id -> number of enquiries.
+  const enquiryCountByPropertyId = new Map();
+  for (const countRow of enquiryCounts) {
+    enquiryCountByPropertyId.set(String(countRow._id), countRow.totalEnquiries);
+  }
 
-  const propertiesWithCounts = properties.map((property) => ({
-    ...property,
-    enquiryCount: enquiryCountByPropertyId.get(String(property._id)) || 0,
-  }));
+  // Attach the count to every property (0 when the property has no enquiries).
+  const propertiesWithCounts = [];
+  for (const property of properties) {
+    const enquiryCount = enquiryCountByPropertyId.get(String(property._id)) || 0;
+    propertiesWithCounts.push(Object.assign({}, property, { enquiryCount: enquiryCount }));
+  }
 
   response.json({ properties: propertiesWithCounts });
 }
@@ -231,29 +632,39 @@ export async function listAllPropertiesForAdmin(request, response) {
  */
 export async function getPropertyByIdForAdmin(request, response) {
   const property = await Property.findById(request.params.id);
+
   if (!property) {
     throw createHttpError(404, "Property not found.");
   }
-  response.json({ property });
+
+  response.json({ property: property });
 }
 
 /**
  * POST /api/admin/properties
  * Multipart form: "propertyData" (JSON text) + "images" (files).
+ * By the time this runs, the images are already stored in Cloudinary.
  */
 export async function createProperty(request, response) {
-  const { allowedFields, keptImagePaths } = readPropertyFieldsFromRequest(request);
-  const newlyUploadedImagePaths = getUploadedImagePaths(request.files);
+  const uploadedImageAddresses = getUploadedImageAddresses(request);
 
   try {
-    const createdProperty = await Property.create({
-      ...allowedFields,
-      images: [...keptImagePaths, ...newlyUploadedImagePaths],
+    const formData = readPropertyFieldsFromRequest(request);
+
+    // Final image list = images the admin kept/pasted + images just uploaded.
+    const finalImageList = formData.keptImagePaths.concat(uploadedImageAddresses);
+
+    const propertyValues = Object.assign({}, formData.allowedFields, { images: finalImageList });
+    const createdProperty = await Property.create(propertyValues);
+
+    response.status(201).json({
+      property: createdProperty,
+      message: "Property created successfully.",
     });
-    response.status(201).json({ property: createdProperty, message: "Property created successfully." });
   } catch (error) {
-    // If saving failed, remove the files we just uploaded so they do not pile up
-    deleteLocalImageFiles(newlyUploadedImagePaths);
+    // Saving failed (for example, a validation error or invalid JSON).
+    // Remove the images we just uploaded so they do not pile up in Cloudinary.
+    await deleteStoredImages(uploadedImageAddresses);
     throw error;
   }
 }
@@ -261,48 +672,61 @@ export async function createProperty(request, response) {
 /**
  * PUT /api/admin/properties/:id
  * Same body as createProperty. Images that are no longer in the list are
- * deleted from the server.
+ * deleted from Cloudinary.
  */
 export async function updateProperty(request, response) {
-  const existingProperty = await Property.findById(request.params.id);
-  if (!existingProperty) {
-    deleteLocalImageFiles(getUploadedImagePaths(request.files));
-    throw createHttpError(404, "Property not found.");
-  }
-
-  const { allowedFields, keptImagePaths } = readPropertyFieldsFromRequest(request);
-  const newlyUploadedImagePaths = getUploadedImagePaths(request.files);
-  const finalImageList = [...keptImagePaths, ...newlyUploadedImagePaths];
-
-  // Images that existed before but were removed by the admin
-  const removedImagePaths = existingProperty.images.filter((imagePath) => !finalImageList.includes(imagePath));
-
-  existingProperty.set({ ...allowedFields, images: finalImageList });
+  const uploadedImageAddresses = getUploadedImageAddresses(request);
 
   try {
+    const existingProperty = await Property.findById(request.params.id);
+    if (!existingProperty) {
+      throw createHttpError(404, "Property not found.");
+    }
+
+    const formData = readPropertyFieldsFromRequest(request);
+    const finalImageList = formData.keptImagePaths.concat(uploadedImageAddresses);
+
+    // Images that existed before but were removed by the admin.
+    const removedImageAddresses = [];
+    for (const existingImageAddress of existingProperty.images) {
+      if (!finalImageList.includes(existingImageAddress)) {
+        removedImageAddresses.push(existingImageAddress);
+      }
+    }
+
+    const updatedValues = Object.assign({}, formData.allowedFields, { images: finalImageList });
+    existingProperty.set(updatedValues);
     await existingProperty.save();
+
+    // Only delete the old images AFTER the database has been updated successfully.
+    await deleteStoredImages(removedImageAddresses);
+
+    response.json({
+      property: existingProperty,
+      message: "Property updated successfully.",
+    });
   } catch (error) {
-    deleteLocalImageFiles(newlyUploadedImagePaths);
+    // Anything went wrong (not found, bad data, validation error):
+    // remove the images that were uploaded for this failed request.
+    await deleteStoredImages(uploadedImageAddresses);
     throw error;
   }
-
-  deleteLocalImageFiles(removedImagePaths);
-  response.json({ property: existingProperty, message: "Property updated successfully." });
 }
 
 /**
  * DELETE /api/admin/properties/:id
- * Removes the property and its uploaded images. Enquiries about this property
- * are kept (they still show the property title), so no lead is ever lost.
+ * Removes the property and its images from Cloudinary. Enquiries about this
+ * property are kept (they still show the property title), so no lead is ever lost.
  */
 export async function deleteProperty(request, response) {
   const propertyToDelete = await Property.findById(request.params.id);
+
   if (!propertyToDelete) {
     throw createHttpError(404, "Property not found.");
   }
 
   await propertyToDelete.deleteOne();
-  deleteLocalImageFiles(propertyToDelete.images);
+  await deleteStoredImages(propertyToDelete.images);
 
-  response.json({ message: `"${propertyToDelete.title}" was deleted.` });
+  response.json({ message: '"' + propertyToDelete.title + '" was deleted.' });
 }
