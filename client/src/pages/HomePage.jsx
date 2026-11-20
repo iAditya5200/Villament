@@ -51,11 +51,11 @@ export default function HomePage() {
       {/* ---------- 1. Hero ---------- */}
       <section className="hero" style={{ "--hero-image": `url(${HERO_IMAGE_ADDRESS})` }}>
         <div className="container hero__content">
-          <span className="eyebrow eyebrow--light"> Invest in Mumbai's next growth corridor </span>
+          <span className="eyebrow eyebrow--light"> Discover India’s Emerging Growth Corridors </span>
           <h1 className="hero__title">
             Gated villas and
             <br />
-            plots across <em>Mumbai 3.0</em>
+            plots across <em>India</em>
           </h1>
           <p className="hero__subtitle">
             Courtyard villas, villa plots and managed farmhouses — planned around the land, built to be handed down.

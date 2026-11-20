@@ -8,12 +8,21 @@
    5.  Header & footer
    6.  Hero & home page sections
    7.  Property cards & grids
+       (includes the PropertyImage photo box and its full-screen viewer)
    8.  Forms & modal
    9.  Property detail page
    10. Other pages (about, contact)
    11. Small components (FAQ, testimonials, EMI, loading states)
    12. Floating buttons
    13. Responsive adjustments
+
+   CHANGES IN THIS VERSION
+   -----------------------
+   The old ".property-image" rule used "object-fit: cover", which cropped
+   photos. Section 7 now contains the new PropertyImage styles: photos are
+   shown whole (never cropped), with a magnifier button and a full-screen
+   zoom viewer. These styles used to be planned for a separate file; they
+   now live here so every page of the website receives them.
    ================================================================== */
 
 /* ---------- 1. Design tokens ---------- */
@@ -942,11 +951,16 @@ button {
   overflow: hidden;
 }
 
-.property-card__media .property-image {
+/*
+ * CHANGED: the gentle zoom on hover is now applied to the photo itself
+ * (".property-image__photo") instead of the whole photo box, so the box,
+ * its background and its buttons stay still.
+ */
+.property-card__media .property-image__photo {
   transition: transform 0.6s ease;
 }
 
-.property-card:hover .property-card__media .property-image {
+.property-card:hover .property-card__media .property-image__photo {
   transform: scale(1.05);
 }
 
@@ -1056,18 +1070,186 @@ button {
   color: var(--color-forest);
 }
 
+/* ------------------------------------------------------------------
+   PropertyImage component (client/src/components/PropertyImage.jsx)
+
+   Part 1: the photo box shown on pages and cards (never crops the photo).
+   Part 2: the full-screen viewer that opens when the magnifier is pressed.
+   ------------------------------------------------------------------ */
+
+/* ----- Part 1: the photo box ----- */
+
+/*
+ * The outer box. Pages and cards decide its SIZE (for example through
+ * ".property-card__media" or ".gallery__main", or through a className passed
+ * to the component). This box then centres the WHOLE photo inside it.
+ *
+ * REPLACES the old rule:  .property-image { object-fit: cover; }
+ * which cut off the edges of every photo.
+ */
 .property-image {
+  position: relative;            /* lets the magnifier button sit in the corner */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  overflow: hidden;              /* keeps rounded corners tidy */
+  background-color: var(--color-stone); /* fills the spare space around the photo */
 }
 
+/*
+ * The photo itself.
+ * "object-fit: contain" shows the WHOLE photo without cutting any part off.
+ */
+.property-image .property-image__photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* The placeholder illustration (shown when there is no photo) fills its box. */
 .property-image--placeholder svg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
+/* The small round magnifier button in the bottom-right corner of the photo. */
+.property-image__magnify {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.property-image__magnify:hover,
+.property-image__magnify:focus-visible {
+  background-color: rgba(0, 0, 0, 0.85);
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+/* ----- Part 2: the full-screen viewer ----- */
+
+/* Covers the whole screen above everything else (header 50, modal 100). */
+.image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(10, 10, 10, 0.92);
+}
+
+/* The bar with the zoom buttons and the Close button. */
+.image-viewer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.image-viewer__button {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.image-viewer__button:hover:not(:disabled),
+.image-viewer__button:focus-visible {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.image-viewer__button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* The zoom percentage button is wider and uses smaller text. */
+.image-viewer__button--wide {
+  min-width: 64px;
+  font-size: 0.95rem;
+}
+
+/* A little extra space before the Close button. */
+.image-viewer__button--close {
+  margin-left: 12px;
+  font-size: 1.6rem;
+}
+
+/*
+ * The area that holds the photo.
+ * "overflow: auto" gives scroll bars when a zoomed photo is bigger than the screen.
+ * "margin: auto" on the photo keeps it centred without cutting off its left edge.
+ */
+.image-viewer__stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;                 /* lets this area shrink so it can scroll */
+  padding: 0 16px 16px;
+  overflow: auto;
+}
+
+.image-viewer__photo {
+  margin: auto;
+  user-select: none;
+}
+
+/* Not zoomed: the whole photo fits inside the screen. */
+.image-viewer__photo--fit {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+/* Zoomed: the width is set by the component (for example 200%), height follows. */
+.image-viewer__photo--zoomed {
+  max-width: none;
+  height: auto;
+  cursor: zoom-out;
+}
+
+/* On small phone screens make the viewer buttons easier to tap. */
+@media (max-width: 600px) {
+  .image-viewer__toolbar {
+    padding: 8px 10px;
+  }
+
+  .image-viewer__button {
+    min-width: 44px;
+    height: 44px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Other property-list styles
+   ------------------------------------------------------------------ */
 .status-tag {
   display: inline-block;
   padding: 5px 12px;
@@ -1355,6 +1537,8 @@ button {
   position: absolute;
   top: 20px;
   left: 20px;
+  /* Keep the status label above the photo box */
+  z-index: 2;
 }
 
 .gallery__thumbnails {
@@ -2135,4 +2319,3 @@ a.contact-detail:hover {
     grid-template-columns: 1fr;
   }
 }
-
