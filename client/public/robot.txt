@@ -1,0 +1,9 @@
+# Allow search engines to visit the public website.
+User-agent: *
+Allow: /
+
+# Keep the admin panel out of search results.
+Disallow: /admin
+
+# Tells search engines where the list of pages is.
+Sitemap: https://villament.co.in/sitemap.xml

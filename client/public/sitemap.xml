@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- List of public pages of villament.co.in, so Google can find them all. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Main pages -->
+  <url><loc>https://villament.co.in/</loc></url>
+  <url><loc>https://villament.co.in/properties</loc></url>
+  <url><loc>https://villament.co.in/about</loc></url>
+  <url><loc>https://villament.co.in/contact</loc></url>
+
+  <!-- One line per property. Replace with your real slugs. -->
+  <url><loc>https://villament.co.in/properties/your-first-property-slug</loc></url>
+
+</urlset>
