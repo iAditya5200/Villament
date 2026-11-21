@@ -40,14 +40,20 @@ export function trackVisit() {
     if (window.sessionStorage.getItem(VISIT_COUNTED_STORAGE_KEY)) {
       return;
     }
-    window.sessionStorage.setItem(VISIT_COUNTED_STORAGE_KEY, "true");
 
     const visitorId = getOrCreateVisitorId();
 
-    // Counting visitors must never break the website,
-    // so any error from the server is quietly ignored.
-    publicApi.recordVisit(visitorId).catch(() => {});
+    // Mark this tab as counted only after the server has accepted the visit,
+    // so a failed request can be retried on the next page load.
+    publicApi
+      .recordVisit(visitorId)
+      .then(() => window.sessionStorage.setItem(VISIT_COUNTED_STORAGE_KEY, "true"))
+      .catch((error) => {
+        // Visitor counting must never break the website, so we only log a warning.
+        console.warn("Visit was not counted:", error.message);
+      });
   } catch (error) {
-    // Storage can be blocked in private browsing. Just skip counting.
+    // Also shows problems such as "publicApi.recordVisit is not a function".
+    console.warn("Visit tracking failed:", error.message);
   }
 }
