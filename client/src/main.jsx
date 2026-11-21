@@ -12,7 +12,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./styles/global.css";
 import "./styles/admin.css";
-
+import { trackVisit } from "./analytics/trackVisit";
+// Count this visitor (once per tab visit).
+trackVisit();
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     {/* BrowserRouter lets us have real page addresses like /properties */}

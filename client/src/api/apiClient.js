@@ -112,6 +112,8 @@ export const publicApi = {
 
   /** Submit an enquiry (contact form, site visit, register interest...) */
   submitEnquiry: (enquiryDetails) => sendApiRequest("/api/enquiries", { method: "POST", body: enquiryDetails }),
+  /** Tells the server that a visitor opened the website (used by the visitor counter). */
+  recordVisit: (visitorId) => sendApiRequest("/api/visits", { method: "POST", body: { visitorId } }),
 };
 
 /* ================================================================== */
@@ -122,7 +124,8 @@ export const adminApi = {
   login: (email, password) => sendApiRequest("/api/auth/login", { method: "POST", body: { email, password } }),
   getCurrentAdmin: () => sendApiRequest("/api/admin/me", { requiresAdmin: true }),
   getDashboard: () => sendApiRequest("/api/admin/dashboard", { requiresAdmin: true }),
-
+// Visitor counts for the dashboard (today, last 7 days, last 30 days, all time).
+  getVisitorStats: () => sendApiRequest("/api/admin/visitors", { requiresAdmin: true }),
   // ----- Properties -----
   getProperties: () => sendApiRequest("/api/admin/properties", { requiresAdmin: true }),
   getProperty: (propertyId) => sendApiRequest(`/api/admin/properties/${propertyId}`, { requiresAdmin: true }),

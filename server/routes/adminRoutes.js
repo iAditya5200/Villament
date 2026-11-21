@@ -6,6 +6,7 @@
  *
  *   GET    /api/admin/me                        the logged-in admin
  *   GET    /api/admin/dashboard                 dashboard numbers
+ *   GET    /api/admin/visitors                  website visitor counts
  *
  *   GET    /api/admin/properties                all properties
  *   GET    /api/admin/properties/:id            one property
@@ -27,6 +28,7 @@ import { requireAdminAuth } from "../middleware/requireAdminAuth.js";
 import { uploadPropertyImages } from "../middleware/imageUpload.js";
 import { getCurrentAdmin } from "../controllers/authController.js";
 import { getDashboardSummary } from "../controllers/dashboardController.js";
+import { getVisitorStats } from "../controllers/visitController.js";
 import {
   listAllPropertiesForAdmin,
   getPropertyByIdForAdmin,
@@ -50,6 +52,9 @@ adminRouter.use(requireAdminAuth);
 
 adminRouter.get("/me", asyncHandler(getCurrentAdmin));
 adminRouter.get("/dashboard", asyncHandler(getDashboardSummary));
+
+// Website visitor numbers shown on the dashboard (login required).
+adminRouter.get("/visitors", asyncHandler(getVisitorStats));
 
 // ----- Properties -----
 adminRouter.get("/properties", asyncHandler(listAllPropertiesForAdmin));
